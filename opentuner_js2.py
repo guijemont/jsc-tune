@@ -49,9 +49,6 @@ def run_jetstream2(host, ssh_id=None, jscpath=None, mock=False, env=None, attemp
     cmd = f'ssh {ssh_opts} {host} "cd JetStream2; {envs} {jscpath} watch-cli.js"'
     if mock:
         cmd = "sleep 0; cat js2-sample-output.txt"
-    #proc = await asyncio.create_subprocess_shell(cmd, stdout=asyncio.subprocess.PIPE)
-    #stdout, stderr = await proc.communicate()
-    #return parse_jetStream2_output(stdout.decode())
     proc = subprocess.Popen(cmd, shell=True, text=True, stdout=subprocess.PIPE)
     outs, errs = proc.communicate()
     if proc.returncode != 0:
@@ -64,7 +61,6 @@ def run_jetstream2(host, ssh_id=None, jscpath=None, mock=False, env=None, attemp
  
     json_res = parse_jetStream2_output(outs, errs)
     return json_res
-    #return subprocess.Popen(f'ssh rpi3 "cd JetStream2; {" ".join(env)} {jscpath} watch-cli.js"', shell=True, text=True, stdout=subprocess.PIPE)
 
     
 def run_n_times(host, n=5, *args, mock=False, env=None, **kwargs):
@@ -73,9 +69,6 @@ def run_n_times(host, n=5, *args, mock=False, env=None, **kwargs):
         for key in tests.keys():
             tests[key]['metrics']['Score']['current'][0] += random.random() - 0.5
         return json_res
-        #for key, val in d.items():
-        #    d[key] = val + random.random() - 0.5
-        #return d        
     
     json_results = [run_jetstream2(host, *args, mock=mock, env=env, **kwargs) for i in range(n)]
 
@@ -121,5 +114,4 @@ class JetStream2Tuner(MeasurementInterface):
 
 
 if __name__ == '__main__':
-    #argparser = opentuner.default_argparser()
     JetStream2Tuner.main(parser.parse_args())
