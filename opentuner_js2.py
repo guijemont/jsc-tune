@@ -35,7 +35,7 @@ def score_from_json(res):
     l = [test['metrics']['Score']['current'][0] for test in res['JetStream2.0']['tests'].values()]
     return gmean(l)
 
-def run_jetstream2(host, ssh_id=None, jscpath=None, mock=False, env=None, attempts=1):
+def run_jetstream2(host, ssh_id=None, jscpath=None, mock=False, env=None):
     """Assumes JetStream2 is in `JetStream2/` path on `host`."""
     if env is None:
         envs = ""
@@ -49,17 +49,9 @@ def run_jetstream2(host, ssh_id=None, jscpath=None, mock=False, env=None, attemp
     cmd = f'ssh {ssh_opts} {host} "cd JetStream2; {envs} {jscpath} watch-cli.js"'
     if mock:
         cmd = "sleep 0; cat js2-sample-output.txt"
-    proc = subprocess.Popen(cmd, shell=True, text=True, stdout=subprocess.PIPE)
-    outs, errs = proc.communicate()
-    if proc.returncode != 0:
-        print(f"command returned {proc.returncode}\nstdout:\n{outs}\nstderr:\n{errs}\n", sys.stderr)
-        if attempts < 5:
-            print("Trying again")
-            return run_jetstream2(host, ssh_id=ssh_id, jscpath=jscpath, mock=mock, env=env, attempts=attempts+1)
-        else:
-            raise RuntimeError("Too many errors running remote command!")
- 
-    json_res = parse_jetStream2_output(outs, errs)
+
+    proc = subprocess.run(cmd, shell=True, text=True, capture_output=True, check=True)
+    json_res = parse_jetStream2_output(proc.stdout, proc.stderr)
     return json_res
 
     
@@ -69,8 +61,23 @@ def run_n_times(host, n=5, *args, mock=False, env=None, **kwargs):
         for key in tests.keys():
             tests[key]['metrics']['Score']['current'][0] += random.random() - 0.5
         return json_res
+
+    def __run(cb):
+        # run cb n times and yield results, allows one CalledProcessError and no more
+        has_failed = False
+        for _ in range(n):
+            try:
+                yield cb()
+            except subprocess.CalledProcessError:
+                if has_failed:
+                    raise
+                else:
+                    has_failed=True
+                    yield cb()
     
-    json_results = [run_jetstream2(host, *args, mock=mock, env=env, **kwargs) for i in range(n)]
+    return list(__run(lambda: run_jetstream2(host, *args, mock=mock, env=env, **kwargs)))
+
+
 
     if mock:
         return [randomize(res) for res in json_results]
@@ -95,10 +102,13 @@ class JetStream2Tuner(MeasurementInterface):
         env = dict((k, cfg[k]) for k in self.__integerParameters.keys())
         
         n = self.args.iteration_per_config
-        # FIXME: make it raise if the thing crashed, the parameters probably
-        # just use too much RAM (maybe allow 1 crash over a run_n_times?)
-        json_res_l = run_n_times(self.args.remote, n, ssh_id=self.args.ssh_id,
-                                 jscpath=self.args.jsc_path, env=env)
+        try:
+            json_res_l = run_n_times(self.args.remote, n, ssh_id=self.args.ssh_id,
+                                     jscpath=self.args.jsc_path, env=env)
+        except subprocess.CalledProcessError:
+            print(f"Too many failures for {env}", file=sys.stderr)
+            return Result(state='ERROR', time=float('inf'), accuracy=0)
+
         assert len(json_res_l) == n
         score = float(tmean([score_from_json(r) for r in json_res_l]))
         
