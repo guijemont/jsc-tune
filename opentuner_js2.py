@@ -4,6 +4,8 @@ import subprocess, sys
 import json
 import random
 import argparse
+from collections import namedtuple
+
 import opentuner
 from opentuner import ConfigurationManipulator, IntegerParameter, MeasurementInterface, Result
 from opentuner.search.objective import MaximizeAccuracy
@@ -74,40 +76,44 @@ def run_n_times(host, n=5, *args, mock=False, env=None, **kwargs):
                     raise
                 else:
                     has_failed=True
+                    print(f"Info: proccess failure for {env}")
                     yield cb()
     
     return list(__run(lambda: run_jetstream2(host, *args, mock=mock, env=env, **kwargs)))
-
-
 
     if mock:
         return [randomize(res) for res in json_results]
     else:
         return json_results
 
+Parameter = namedtuple('Parameter', ('name', 'min', 'max', 'resolution'))
+
 class JetStream2Tuner(MeasurementInterface):
-    __integerParameters = {'maximumFunctionForCallInlineCandidateBytecodeCost': (0, 200),
-                          'maximumOptimizationCandidateBytecodeCost': (0, 200000)}
+    __integerParameters = (#Parameter('maximumFunctionForCallInlineCandidateBytecodeCost', 0, 200, 10),
+                          Parameter('maximumOptimizationCandidateBytecodeCost', 0, 200000, 10000),)
     
     def objective(self):
         return MaximizeAccuracy()
     
     def manipulator(self):
         manipulator = ConfigurationManipulator()
-        for param, vals in self.__integerParameters.items():
-            manipulator.add_parameter(IntegerParameter(param, *vals))
+        for param in self.__integerParameters:
+            assert param.min % param.resolution == 0
+            assert param.max % param.resolution == 0
+            manipulator.add_parameter(IntegerParameter(param.name, int(param.min / param.resolution),
+                                                       int(param.max / param.resolution)))
         return manipulator
         
     def run(self, desired_result, input_, limit):
         cfg = desired_result.configuration.data
-        env = dict((k, cfg[k]) for k in self.__integerParameters.keys())
+        env = dict((param.name, cfg[param.name] * param.resolution) for param in self.__integerParameters)
         
         n = self.args.iteration_per_config
         try:
             json_res_l = run_n_times(self.args.remote, n, ssh_id=self.args.ssh_id,
                                      jscpath=self.args.jsc_path, env=env)
         except subprocess.CalledProcessError:
-            print(f"Too many failures for {env}", file=sys.stderr)
+            print(f"Warning: Too many failures for {env}", file=sys.stderr)
             return Result(state='ERROR', time=float('inf'), accuracy=0)
 
         assert len(json_res_l) == n
@@ -119,9 +125,11 @@ class JetStream2Tuner(MeasurementInterface):
         return Result(accuracy=score, time=1)
     
     def save_final_config(self, configuration):
-        print("Optimal configuration written to jetstream2-opt.json:", configuration.data)
-        self.manipulator().save_to_file(configuration.data,
-                                        'jetstream2-opt.json')
+        out_data = configuration.data.copy()
+        for param in self.__integerParameters:
+            out_data[param.name] *= param.resolution
+        print("Optimal configuration written to jetstream2-opt.json:", out_data)
+        self.manipulator().save_to_file(out_data, 'jetstream2-opt.json')
 
 
 if __name__ == '__main__':
