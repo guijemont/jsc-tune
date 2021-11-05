@@ -11,6 +11,7 @@ from functools import reduce
 from scipy.stats import gmean, tmean
 
 # FIXME maybe also a json file with options to test for?
+# FIXME fix parallelism
 
 
 parser = argparse.ArgumentParser(parents=opentuner.argparsers())

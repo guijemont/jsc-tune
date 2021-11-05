@@ -1,3 +1,4 @@
+# FIXME: run as a user (and install pip packages as user)
 # python 3.10 would be great, but can't build numpy with it
 FROM python:3.9-slim
 
