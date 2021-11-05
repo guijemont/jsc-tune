@@ -25,19 +25,19 @@ parser.add_argument('-n', '--iteration-per-config', type=int, default=5,
                     help="how many times to run JetStream2 for each tested configuration")
 
 
-
-def parse_jetStream2_output(s, errs=None):
-    for line in s.splitlines():
-        if line.startswith('{'):
-            return json.loads(line)
-    raise RuntimeError(f"Could not parse JetStream2 output:\n{s}\nstderr:\n{errs}\n")
-    
 def score_from_json(res):
     l = [test['metrics']['Score']['current'][0] for test in res['JetStream2.0']['tests'].values()]
     return gmean(l)
 
 def run_jetstream2(host, ssh_id=None, jscpath=None, mock=False, env=None):
     """Assumes JetStream2 is in `JetStream2/` path on `host`."""
+
+    def __parse(s, errs=None):
+        for line in s.splitlines():
+            if line.startswith('{'):
+                return json.loads(line)
+        raise RuntimeError(f"Could not parse JetStream2 output:\n{s}\nstderr:\n{errs}\n")
+
     if env is None:
         envs = ""
     else:
@@ -52,7 +52,7 @@ def run_jetstream2(host, ssh_id=None, jscpath=None, mock=False, env=None):
         cmd = "sleep 0; cat js2-sample-output.txt"
 
     proc = subprocess.run(cmd, shell=True, text=True, capture_output=True, check=True)
-    json_res = parse_jetStream2_output(proc.stdout, proc.stderr)
+    json_res = __parse(proc.stdout, proc.stderr)
     return json_res
 
     
