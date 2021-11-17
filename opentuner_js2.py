@@ -46,7 +46,7 @@ def run_jetstream2(host, ssh_id=None, jscpath=None, mock=False, env=None):
         envs = " ".join(f"JSC_{k}={v}" for k,v in env.items())
     if jscpath is None:
         jscpath = 'jsc'
-    ssh_opts = ""
+    ssh_opts = "-o StrictHostKeyChecking=no"
     if ssh_id:
         ssh_opts += f" -i {ssh_id}"
     cmd = f'ssh {ssh_opts} {host} "cd JetStream2; {envs} {jscpath} watch-cli.js"'
