@@ -71,12 +71,12 @@ def run_n_times(host, n=5, *args, mock=False, env=None, **kwargs):
         for _ in range(n):
             try:
                 yield cb()
-            except subprocess.CalledProcessError:
+            except subprocess.CalledProcessError as e:
                 if has_failed:
                     raise
                 else:
                     has_failed=True
-                    print(f"Info: proccess failure for {env}")
+                    print(f"Info: process failure for {env}: {e}\n{e.stdout}\n{e.stderr}")
                     yield cb()
     
     return list(__run(lambda: run_jetstream2(host, *args, mock=mock, env=env, **kwargs)))
