@@ -1,7 +1,6 @@
 #!/usr/bin/env -S python3 -u
 
 # FIXME: logging
-# FIXME: save detailed results
 from skopt import gp_minimize, dump
 
 from scipy.stats import gmean, tmean, tvar
@@ -13,6 +12,9 @@ from collections import namedtuple
 from skopt.plots import plot_convergence, plot_objective
 from datetime import datetime
 from pathlib import Path
+import logging
+
+
 
 Parameter = namedtuple('Parameter', ('name', 'range', 'default'))
 parameters = (Parameter('maximumFunctionForCallInlineCandidateBytecodeCost', (0, 200), 120),
@@ -76,7 +78,7 @@ def get_optimization_func(options):
         env = dict((parameters[i].name, arg) for i, arg in enumerate(arguments))
         #print(f"running: {env}")
         score = run_jetstream2(options.remote, options.ssh_id, options.jsc_path, env=env)
-        print(f"optimize_me({arguments}) → {score}")
+        logging.debug(f"optimize_me({arguments}) → {score}")
         return -score
 
     return optimize_me
@@ -87,8 +89,7 @@ def default_preruns(options):
     scores = [run_jetstream2(options.remote, options.ssh_id, options.jsc_path, env=env) for _ in range(options.pre_run)]
     return (tmean(scores), tvar(scores))
 
-def save_results(options, output_dir, res):
-    nowStr = datetime.now().strftime('%Y-%m-%d-%H%M%S')
+def save_results(options, output_dir, res, nowStr):
     if options.dump_graphs:
         fig = plot_convergence(res).get_figure()
         fig.savefig(output_dir / f"{nowStr}-convergence.png")
@@ -103,20 +104,24 @@ def prepare_output(options):
     return output_dir
 
 if __name__ == '__main__':
+    nowStr = datetime.now().strftime('%Y-%m-%d-%H%M%S')
     options = parser.parse_args()
-    print(f"options: {options}")
     output_dir = prepare_output(options)
+    logging.basicConfig(level=logging.DEBUG,
+                        handlers=[logging.FileHandler(output_dir / f"{nowStr}.log"),
+                                  logging.StreamHandler()])
+    logging.debug(f"options: {options}")
     gp_minimize_kargs = {}
     if options.pre_run >=3:
         y0, noise = default_preruns(options)
-        print(f"With defaults ({dict((p.name, p.default) for p in parameters)}): result: {y0}, variance: {noise}")
+        logging.info(f"With defaults ({dict((p.name, p.default) for p in parameters)}): result: {y0}, variance: {noise}")
         gp_minimize_kargs['y0'] = -y0
         gp_minimize_kargs['noise'] = noise
         gp_minimize_kargs['x0'] = [p.default for p in parameters]
 
     func = get_optimization_func(options)
     import time
-    print ("Starting to minimize")
+    logging.info("Starting to minimize")
     before = time.monotonic()
     res = gp_minimize(func,
                       [p.range for p in parameters],
@@ -125,6 +130,6 @@ if __name__ == '__main__':
                       initial_point_generator=options.initial_point_generator,
                       verbose=True,
                       **gp_minimize_kargs)
-    print(f"gp_minimize ran in {time.monotonic() - before}s")
-    print(f"best: {res.x} → {-res.fun}")
-    save_results(options, output_dir, res)
+    logging.info(f"gp_minimize ran in {time.monotonic() - before}s")
+    logging.info(f"best: {res.x} → {-res.fun}")
+    save_results(options, output_dir, res, nowStr)
