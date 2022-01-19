@@ -2,9 +2,9 @@
 # python 3.10 would be great, but can't build numpy with it
 FROM python:3.9-slim
 
-ARG user=opentuner
+ARG user=optimizer
 ARG uid=1001
-ARG group=opentuner
+ARG group=optimizer
 ARG gid=1001
 
 ENV DEBIAN_FRONTEND=noninteractive
@@ -25,6 +25,6 @@ WORKDIR /work
 
 USER $user
 
-RUN pip install --no-cache-dir --no-warn-script-location --upgrade pip && pip install --no-cache-dir --no-warn-script-location scipy opentuner
+RUN pip install --no-cache-dir --no-warn-script-location --upgrade pip && pip install --no-cache-dir --no-warn-script-location scipy scikit-optimize matplotlib
 
-ENTRYPOINT [ "python", "./opentuner_js2.py" ]
+ENTRYPOINT [ "python", "./scikit-optimize-js2.py" ]
