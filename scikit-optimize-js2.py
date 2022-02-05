@@ -103,7 +103,8 @@ class JetStream2(JSCBenchmark):
             raise RuntimeError(f"Could not parse JetStream2 output:\n{s}\nstderr:\n{errs}\n")
         json_res = __parse(out, errs)
         l = [test['metrics']['Score']['current'][0] for test in json_res['JetStream2.0']['tests'].values()]
-        return gmean(l)
+        # we're minimizing, but interested in highest score, hence the '-'
+        return -gmean(l)
 
 
 def save_results(options, output_dir, res, nowStr):
