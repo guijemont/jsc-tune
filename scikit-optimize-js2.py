@@ -34,65 +34,78 @@ parser.add_argument('-i', '--ssh-id', required=True,
                     help="ssh identity file to use to connect to remote host")
 parser.add_argument('-j', '--jsc-path', required=True,
                     help="path of jsc executable on remote host")
-parser.add_argument('--initial-point-generator', default="random",
-                    help="path of jsc executable on remote host")
+parser.add_argument('--initial-point-generator', default="random")
 parser.add_argument('-n', '--n-calls', type=int, default=50,
-                    help="how many times to run JetStream2")
+                    help="how many times to run benchmark")
 parser.add_argument('--initial-points', type=int, default=10,
                     help="how many random points to evaluate before using estimator")
 parser.add_argument('-p', '--pre-run', type=int, default=5,
-                    help="How many times to initially run JetStream2 to calculate variance")
+                    help="How many times to initially run benchmark to calculate variance")
 parser.add_argument('-o', '--output-dir', type=str, default="./",
                     help="Where to output everything we generate")
 parser.add_argument('-g', '--dump-graphs', action='store_true',
                     help="Save graphics")
+parser.add_argument('--repeats', type=int, default=1,
+                    help="How many times to run each config (apart from preruns)")
 
 
-def score_from_json(res):
-    l = [test['metrics']['Score']['current'][0] for test in res['JetStream2.0']['tests'].values()]
-    return gmean(l)
+class JSCBenchmark:
+    def __init__(self, host, repeats, parameters, ssh_id=None, jscpath=None):
+        self._host = host
+        self._repeats = repeats
+        self._parameters = parameters
+        self._ssh_id = ssh_id
+        if jscpath is None:
+            self._jscpath = 'jsc'
+        else:
+            self._jscpath = jscpath
 
-def run_jetstream2(host, ssh_id=None, jscpath=None, env=None):
-    """Assumes JetStream2 is in `JetStream2/` path on `host`."""
+    def score(self, out, errs):
+        raise RuntimeError("Not implemented")
 
-    def __parse(s, errs=None):
-        for line in s.splitlines():
-            if line.startswith('{'):
-                return json.loads(line)
-        raise RuntimeError(f"Could not parse JetStream2 output:\n{s}\nstderr:\n{errs}\n")
+    def benchmark_command(self, env_string):
+        raise RuntimeError("Not implemented")
 
-    if env is None:
-        envs = ""
-    else:
-        envs = " ".join(f"JSC_{k}={v}" for k,v in env.items())
-    if jscpath is None:
-        jscpath = 'jsc'
-    ssh_opts = "-o StrictHostKeyChecking=no"
-    if ssh_id:
-        ssh_opts += f" -i {ssh_id}"
-    cmd = f'ssh {ssh_opts} {host} "cd JetStream2; {envs} {jscpath} watch-cli.js"'
-    def __run():
-        proc = subprocess.run(cmd, shell=True, text=True, capture_output=True, check=True)
-        json_res = __parse(proc.stdout, proc.stderr)
-        return score_from_json(json_res)
-    return np.mean([__run() for _ in range(3)])
+    def run(self, arguments):
+        assert len(arguments) == len(self._parameters)
+        env = dict((self._parameters[i].name, arg) for i, arg in enumerate(arguments))
+        env_string = " ".join(f"JSC_{k}={v}" for k,v in env.items())
 
-def get_optimization_func(options):
-    def optimize_me(arguments):
-        assert len(arguments) == len(parameters)
-        env = dict((parameters[i].name, arg) for i, arg in enumerate(arguments))
-        #print(f"running: {env}")
-        score = run_jetstream2(options.remote, options.ssh_id, options.jsc_path, env=env)
-        logging.debug(f"optimize_me({arguments}) → {score}")
-        return -score
+        ssh_opts = "-o StrictHostKeyChecking=no"
+        if self._ssh_id:
+            ssh_opts += f" -i {self._ssh_id}"
 
-    return optimize_me
+        cmd = f'ssh {ssh_opts} {self._host} "{self.benchmark_command(env_string)}"'
 
+        def __run():
+            for i in range(3):
+                proc = subprocess.run(cmd, shell=True, text=True, capture_output=True)
+                if proc.returncode == 0:
+                    return self.score(proc.stdout, proc.stderr)
 
-def default_preruns(options):
-    env = dict((p.name, p.default) for p in parameters)
-    scores = [run_jetstream2(options.remote, options.ssh_id, options.jsc_path, env=env) for _ in range(options.pre_run)]
-    return (tmean(scores), tvar(scores))
+            raise RuntimeError(f"Command \"{cmd}\" failed 3 times.\nreturn value: {proc.returncode}\nstderr:\n{proc.stderr}\nstdout:\n{proc.stdout}\n")
+
+        return np.mean([__run() for _ in range(self._repeats)])
+
+    def preruns(self, n):
+        default_arguments = dict((p.name, p.default) for p in self._parameters)
+        scores = [self.run(default_arguments) for _ in range(n)]
+        return (tmean(scores), tvar(scores))
+
+class JetStream2(JSCBenchmark):
+    def benchmark_command(self, env_string):
+        return f'cd JetStream2; {env_string} {self._jscpath} watch-cli.js'
+
+    def score(self, out, errs):
+        def __parse(s, errs=None):
+            for line in s.splitlines():
+                if line.startswith('{'):
+                    return json.loads(line)
+            raise RuntimeError(f"Could not parse JetStream2 output:\n{s}\nstderr:\n{errs}\n")
+        json_res = __parse(out, errs)
+        l = [test['metrics']['Score']['current'][0] for test in json_res['JetStream2.0']['tests'].values()]
+        return gmean(l)
+
 
 def save_results(options, output_dir, res, nowStr):
     if options.dump_graphs:
@@ -116,19 +129,19 @@ if __name__ == '__main__':
                         handlers=[logging.FileHandler(output_dir / f"{nowStr}.log"),
                                   logging.StreamHandler()])
     logging.debug(f"options: {options}")
+    benchmark = JetStream2(options.remote, options.repeats, parameters, options.ssh_id, options.jsc_path)
     gp_minimize_kargs = {}
     if options.pre_run >=3:
-        y0, noise = default_preruns(options)
+        y0, noise = benchmark.preruns(options.pre_run)
         logging.info(f"With defaults ({dict((p.name, p.default) for p in parameters)}): result: {y0}, variance: {noise}")
         gp_minimize_kargs['y0'] = -y0
         gp_minimize_kargs['noise'] = noise
         gp_minimize_kargs['x0'] = [p.default for p in parameters]
 
-    func = get_optimization_func(options)
     import time
     logging.info("Starting to minimize")
     before = time.monotonic()
-    res = gp_minimize(func,
+    res = gp_minimize(benchmark.run,
                       [p.range for p in parameters],
                       n_calls=options.n_calls,
                       n_initial_points=options.initial_points,
