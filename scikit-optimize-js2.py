@@ -1,6 +1,5 @@
 #!/usr/bin/env -S python3 -u
 
-# FIXME: logging
 from skopt import gp_minimize, dump
 
 from scipy.stats import gmean, tmean, tvar
