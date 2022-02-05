@@ -84,7 +84,13 @@ class JSCBenchmark:
 
             raise RuntimeError(f"Command \"{cmd}\" failed 3 times.\nreturn value: {proc.returncode}\nstderr:\n{proc.stderr}\nstdout:\n{proc.stdout}\n")
 
-        return np.mean([__run() for _ in range(self._repeats)])
+        try:
+            return np.mean([__run() for _ in range(self._repeats)])
+        except RuntimeError as e:
+            print(f"WARNING: error while running configuration {arguments}, returning arbitrary large value: {e}")
+            # Note: using inf, nan or sys.float_info.max ends up failing
+            # gp_minimize, 1e100 seems to work and should be "big enough" for most benchmarks
+            return 1e100
 
     def preruns(self, n):
         default_arguments = dict((p.name, p.default) for p in self._parameters)
