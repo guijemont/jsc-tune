@@ -140,7 +140,7 @@ if __name__ == '__main__':
     if options.pre_run >=3:
         y0, noise = benchmark.preruns(options.pre_run)
         logging.info(f"With defaults ({dict((p.name, p.default) for p in parameters)}): result: {y0}, variance: {noise}")
-        gp_minimize_kargs['y0'] = -y0
+        gp_minimize_kargs['y0'] = y0
         gp_minimize_kargs['noise'] = noise
         gp_minimize_kargs['x0'] = [p.default for p in parameters]
 
