@@ -46,6 +46,8 @@ parser.add_argument('-g', '--dump-graphs', action='store_true',
                     help="Save graphics")
 parser.add_argument('--repeats', type=int, default=1,
                     help="How many times to run each config (apart from preruns)")
+parser.add_argument('--previous-results', type=str, default=[], action='append',
+                    help="PKL file containing previous results for this exact configuration to take into account")
 
 
 class JSCBenchmark:
@@ -127,6 +129,27 @@ def prepare_output(options):
     output_dir.mkdir(exist_ok=True)
     return output_dir
 
+Coordinates = namedtuple('Coordinates', ('x', 'y'))
+def filter_in_bounds(xvals, yvals, parameters):
+    assert(len(xvals) == len(yvals))
+    res_x = []
+    res_y = []
+    def in_range(x, range_):
+        return x >= range_[0] and x <= range_[1]
+    def in_bounds(x):
+        assert(len(x) == len(parameters))
+        for t, p in zip(x, parameters):
+            if not in_range(t, p.range):
+                return False
+        return True
+
+    for x,y in zip(xvals, yvals):
+        if in_bounds(x):
+            res_x.append(x)
+            res_y.append(y)
+    return Coordinates(res_x, res_y)
+
+
 if __name__ == '__main__':
     nowStr = datetime.now().strftime('%Y-%m-%d-%H%M%S')
     options = parser.parse_args()
@@ -143,6 +166,35 @@ if __name__ == '__main__':
         gp_minimize_kargs['y0'] = y0
         gp_minimize_kargs['noise'] = noise
         gp_minimize_kargs['x0'] = [p.default for p in parameters]
+
+    for k in ('x0', 'y0'):
+        if k in gp_minimize_kargs:
+            logging.info(f"initial {k}: {gp_minimize_kargs[k]}\n")
+    if options.previous_results:
+        for k in ('x0', 'y0'):
+            if k in gp_minimize_kargs:
+                #assert(type(gp_minimize_kargs[k]) is list)
+                if k=='x0' and gp_minimize_kargs[k] and type(gp_minimize_kargs[k]) is list and type(gp_minimize_kargs[k][0]) is not list:
+                    gp_minimize_kargs[k] = [gp_minimize_kargs[k]]
+                    logging.info(f"Reworked {k} as: {gp_minimize_kargs[k]}")
+                elif k=='y0' and k in gp_minimize_kargs:
+                    gp_minimize_kargs[k] = [gp_minimize_kargs[k]]
+                    logging.info(f"Reworked {k} as: {gp_minimize_kargs[k]}")
+                else:
+                    logging.info(f"{k} not reworked")
+            else:
+                gp_minimize_kargs[k] = []
+        for f in options.previous_results:
+            res = skopt.load(f)
+            in_bounds = filter_in_bounds(res.x_iters, list(res.func_vals), parameters)
+            logging.info(f"Adding {in_bounds.x} to x0\n")
+            gp_minimize_kargs['x0'] += in_bounds.x
+            logging.info(f"Adding {in_bounds.y} to y0\n")
+            gp_minimize_kargs['y0'] += in_bounds.y
+            logging.info(f"Using {len(in_bounds.x)} of {len(res.x_iters)} previous points from {f}\n")
+
+    logging.info(f"Gonna pass as x0:\n{gp_minimize_kargs['x0']}\n")
+    logging.info(f"Gonna pass as y0:\n{gp_minimize_kargs['y0']}\n")
 
     import time
     logging.info("Starting to minimize")
