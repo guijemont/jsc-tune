@@ -34,17 +34,17 @@ parser.add_argument('-i', '--ssh-id', required=True,
 parser.add_argument('-j', '--jsc-path', required=True,
                     help="path of jsc executable on remote host")
 parser.add_argument('--initial-point-generator', default="random")
-parser.add_argument('-n', '--n-calls', type=int, default=50,
+parser.add_argument('-n', '--n-calls', type=int, default=75,
                     help="how many times to run benchmark")
 parser.add_argument('--initial-points', type=int, default=10,
                     help="how many random points to evaluate before using estimator")
 parser.add_argument('-p', '--pre-run', type=int, default=5,
                     help="How many times to initially run benchmark to calculate variance")
-parser.add_argument('-o', '--output-dir', type=str, default="./",
+parser.add_argument('-o', '--output-dir', type=str, default="./jsc-tune-results",
                     help="Where to output everything we generate")
 parser.add_argument('-g', '--dump-graphs', action='store_true',
                     help="Save graphics")
-parser.add_argument('--repeats', type=int, default=1,
+parser.add_argument('--repeats', type=int, default=5,
                     help="How many times to run each config (apart from preruns)")
 parser.add_argument('--previous-results', type=str, default=[], action='append',
                     help="PKL file containing previous results for this exact configuration to take into account")
