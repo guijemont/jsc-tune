@@ -1,6 +1,6 @@
 #!/usr/bin/env -S python3 -u
 
-from skopt import gp_minimize, dump
+import skopt
 
 from scipy.stats import gmean, tmean, tvar
 import numpy as np
@@ -119,7 +119,7 @@ def save_results(options, output_dir, res, nowStr):
         fig.savefig(output_dir / f"{nowStr}-convergence.png")
         fig = plot_objective(res, dimensions=[p.name for p in parameters])[0][0].get_figure()
         fig.savefig(output_dir / f"{nowStr}-objective.png")
-    dump(res, output_dir / f"{nowStr}-dump.pkl", store_objective=False)
+    skopt.dump(res, output_dir / f"{nowStr}-dump.pkl", store_objective=False)
 
 
 def prepare_output(options):
@@ -147,7 +147,7 @@ if __name__ == '__main__':
     import time
     logging.info("Starting to minimize")
     before = time.monotonic()
-    res = gp_minimize(benchmark.run,
+    res = skopt.gp_minimize(benchmark.run,
                       [p.range for p in parameters],
                       n_calls=options.n_calls,
                       n_initial_points=options.initial_points,
