@@ -27,4 +27,4 @@ USER $user
 
 RUN pip install --no-cache-dir --no-warn-script-location --upgrade pip && pip install --no-cache-dir --no-warn-script-location scipy scikit-optimize matplotlib
 
-ENTRYPOINT [ "python", "./scikit-optimize-js2.py" ]
+ENTRYPOINT [ "python", "./jsc-tune.py" ]
