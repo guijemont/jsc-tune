@@ -16,12 +16,12 @@ import logging
 
 
 Parameter = namedtuple('Parameter', ('name', 'range', 'default'))
-parameters = (Parameter('maximumFunctionForCallInlineCandidateBytecodeCost', (0, 180), 120),
-              Parameter('maximumOptimizationCandidateBytecodeCost', (0, 150000), 100000),
-              Parameter('maximumFunctionForClosureCallInlineCandidateBytecodeCost', (0, 150), 100 ),
-              Parameter('maximumInliningCallerBytecodeCost', (0, 15000), 10000),
-              Parameter('maximumInliningDepth', (2,8), 5),
-              Parameter('maximumInliningRecursion', (1,5), 2),
+parameters = (Parameter('maximumFunctionForCallInlineCandidateBytecodeCost', (50, 180), 77),
+              Parameter('maximumOptimizationCandidateBytecodeCost', (65, 150000), 42403),
+              Parameter('maximumFunctionForClosureCallInlineCandidateBytecodeCost', (50, 150), 68),
+              Parameter('maximumInliningCallerBytecodeCost', (500, 15000), 9912),
+              Parameter('maximumInliningDepth', (2,8), 8),
+              Parameter('maximumInliningRecursion', (1,5), 3),
              )
 
 
