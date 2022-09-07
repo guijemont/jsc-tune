@@ -87,7 +87,7 @@ class JSCBenchmark:
         try:
             return np.mean([__run() for _ in range(self._repeats)])
         except RuntimeError as e:
-            print(f"WARNING: error while running configuration {arguments}, returning arbitrary large value: {e}")
+            logging.warning(f"error while running configuration {arguments}, returning arbitrary large value: {e}\n")
             # Note: using inf, nan or sys.float_info.max ends up failing
             # gp_minimize, 1e100 seems to work and should be "big enough" for most benchmarks
             return 1e100
