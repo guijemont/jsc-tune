@@ -21,10 +21,14 @@ RUN useradd -m -u "$uid" -g "$gid" "$user"
 
 RUN mkdir /work && chown $uid:$gid /work
 
+RUN mkdir /jsc-tune && chown $uid:$gid /jsc-tune
+
+RUN mkdir /jsc-tune-data && chown $uid:$gid /jsc-tune-data
+
 WORKDIR /work
 
 USER $user
 
 RUN pip install --no-cache-dir --no-warn-script-location --upgrade pip && pip install --no-cache-dir --no-warn-script-location scipy scikit-optimize matplotlib
 
-ENTRYPOINT [ "python", "./jsc-tune.py" ]
+ENTRYPOINT [ "python", "/jsc-tune/jsc-tune.py" ]
