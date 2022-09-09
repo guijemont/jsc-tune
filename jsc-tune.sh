@@ -45,8 +45,4 @@ if ! docker image inspect $IMAGE > /dev/null 2>&1; then
   make
 fi
 
-echo "START" `date` | tee -a optimizer.log
-
-docker run --rm  ${DOCKER_RUN_ARGS} --network=host ${IMAGE} "$@" -i "/jsc-tune-data/${ssh_id_file}" 2>&1 | tee -a jsc-tune.log
-
-echo "END" `date` | tee -a jsc-tune.log
+docker run --rm  ${DOCKER_RUN_ARGS} --network=host ${IMAGE} "$@" -i "/jsc-tune-data/${ssh_id_file}"

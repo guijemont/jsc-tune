@@ -12,7 +12,7 @@ from skopt.plots import plot_convergence, plot_objective
 from datetime import datetime
 from pathlib import Path
 import logging
-
+from contextlib import ExitStack, redirect_stdout, redirect_stderr
 
 
 Parameter = namedtuple('Parameter', ('name', 'range', 'default'))
@@ -56,6 +56,7 @@ class JSCBenchmark:
         self._repeats = repeats
         self._parameters = parameters
         self._ssh_id = ssh_id
+        self.logger = logging.getLogger("jsc-tune/JSCBenchmark")
         if jscpath is None:
             self._jscpath = 'jsc'
         else:
@@ -89,7 +90,7 @@ class JSCBenchmark:
         try:
             return np.mean([__run() for _ in range(self._repeats)])
         except RuntimeError as e:
-            logging.warning(f"error while running configuration {arguments}, returning arbitrary large value: {e}\n")
+            self.logger.warning(f"error while running configuration {arguments}, returning arbitrary large value: {e}\n")
             # Note: using inf, nan or sys.float_info.max ends up failing
             # gp_minimize, 1e100 seems to work and should be "big enough" for most benchmarks
             return 1e100
@@ -150,62 +151,82 @@ def filter_in_bounds(xvals, yvals, parameters):
     return Coordinates(res_x, res_y)
 
 
+class LogRedirect(object):
+    def __init__(self, name, level):
+        self.logger = logging.getLogger(name)
+        self.level = level
+
+    def write(self, buf):
+        lines = (l.rstrip() for l in buf.rstrip().splitlines())
+        for line in lines:
+            self.logger.log(self.level, line)
+
+    def flush(self):
+        pass
+
 if __name__ == '__main__':
     nowStr = datetime.now().strftime('%Y-%m-%d-%H%M%S')
     options = parser.parse_args()
     output_dir = prepare_output(options)
-    logging.basicConfig(level=logging.DEBUG,
+    logging.basicConfig(level=logging.INFO,
+                        format="%(asctime)s:%(levelname)s:%(name)s: %(message)s",
                         handlers=[logging.FileHandler(output_dir / f"{nowStr}.log"),
                                   logging.StreamHandler()])
-    logging.debug(f"options: {options}")
+
+    logger = logging.getLogger("jsc-tune")
+    logger.debug(f"options: {options}")
     benchmark = JetStream2(options.remote, options.repeats, parameters, options.ssh_id, options.jsc_path)
     gp_minimize_kargs = {}
     if options.pre_run >=3:
         y0, noise = benchmark.preruns(options.pre_run)
-        logging.info(f"With defaults ({dict((p.name, p.default) for p in parameters)}): result: {y0}, variance: {noise}")
+        logger.info(f"With defaults ({dict((p.name, p.default) for p in parameters)}): result: {y0}, variance: {noise}")
         gp_minimize_kargs['y0'] = y0
         gp_minimize_kargs['noise'] = noise
         gp_minimize_kargs['x0'] = [p.default for p in parameters]
 
     for k in ('x0', 'y0'):
         if k in gp_minimize_kargs:
-            logging.info(f"initial {k}: {gp_minimize_kargs[k]}\n")
+            logger.info(f"initial {k}: {gp_minimize_kargs[k]}\n")
     if options.previous_results:
         for k in ('x0', 'y0'):
             if k in gp_minimize_kargs:
                 #assert(type(gp_minimize_kargs[k]) is list)
                 if k=='x0' and gp_minimize_kargs[k] and type(gp_minimize_kargs[k]) is list and type(gp_minimize_kargs[k][0]) is not list:
                     gp_minimize_kargs[k] = [gp_minimize_kargs[k]]
-                    logging.info(f"Reworked {k} as: {gp_minimize_kargs[k]}")
+                    logger.info(f"Reworked {k} as: {gp_minimize_kargs[k]}")
                 elif k=='y0' and k in gp_minimize_kargs:
                     gp_minimize_kargs[k] = [gp_minimize_kargs[k]]
-                    logging.info(f"Reworked {k} as: {gp_minimize_kargs[k]}")
+                    logger.info(f"Reworked {k} as: {gp_minimize_kargs[k]}")
                 else:
-                    logging.info(f"{k} not reworked")
+                    logger.info(f"{k} not reworked")
             else:
                 gp_minimize_kargs[k] = []
         for f in options.previous_results:
             res = skopt.load(f)
             in_bounds = filter_in_bounds(res.x_iters, list(res.func_vals), parameters)
-            logging.info(f"Adding {in_bounds.x} to x0\n")
+            logger.info(f"Adding {in_bounds.x} to x0\n")
             gp_minimize_kargs['x0'] += in_bounds.x
-            logging.info(f"Adding {in_bounds.y} to y0\n")
+            logger.info(f"Adding {in_bounds.y} to y0\n")
             gp_minimize_kargs['y0'] += in_bounds.y
-            logging.info(f"Using {len(in_bounds.x)} of {len(res.x_iters)} previous points from {f}\n")
+            logger.info(f"Using {len(in_bounds.x)} of {len(res.x_iters)} previous points from {f}\n")
 
-    logging.info(f"Gonna pass as x0:\n{gp_minimize_kargs['x0']}\n")
-    logging.info(f"Gonna pass as y0:\n{gp_minimize_kargs['y0']}\n")
+    logger.info(f"Gonna pass as x0:\n{gp_minimize_kargs.get('x0')}\n")
+    logger.info(f"Gonna pass as y0:\n{gp_minimize_kargs.get('y0')}\n")
 
     import time
-    logging.info("Starting to minimize")
+    logger.info("Starting to minimize")
     before = time.monotonic()
-    res = skopt.gp_minimize(benchmark.run,
-                      [p.range for p in parameters],
-                      n_calls=options.n_calls,
-                      n_initial_points=options.initial_points,
-                      initial_point_generator=options.initial_point_generator,
-                      verbose=True,
-                      **gp_minimize_kargs)
-    logging.info(f"gp_minimize ran in {time.monotonic() - before}s")
-    logging.info(f"best: {res.x} → {-res.fun}")
+    with ExitStack() as stack:
+        # We need this stuff because gp_minimize() does a lot of prints that we want in our log file
+        stack.enter_context(redirect_stdout(LogRedirect("gp_minimize", logging.INFO)))
+        stack.enter_context(redirect_stderr(LogRedirect("gp_minimize", logging.ERROR)))
+        res = skopt.gp_minimize(benchmark.run,
+                          [p.range for p in parameters],
+                          n_calls=options.n_calls,
+                          n_initial_points=options.initial_points,
+                          initial_point_generator=options.initial_point_generator,
+                          verbose=True,
+                          **gp_minimize_kargs)
+    logger.info(f"gp_minimize ran in {time.monotonic() - before}s")
+    logger.info(f"best: {res.x} → {-res.fun}")
     save_results(options, output_dir, res, nowStr)
