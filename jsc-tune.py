@@ -13,6 +13,7 @@ from datetime import datetime
 from pathlib import Path
 import logging
 from contextlib import ExitStack, redirect_stdout, redirect_stderr
+from random import random
 
 
 Parameter = namedtuple('Parameter', ('name', 'range', 'default'))
@@ -48,19 +49,24 @@ parser.add_argument('--repeats', type=int, default=5,
                     help="How many times to run each config (apart from preruns)")
 parser.add_argument('--previous-results', type=str, default=[], action='append',
                     help="PKL file containing previous results for this exact configuration to take into account")
-
+# Note -b / --benchmark option added after benchmark definitions
 
 class JSCBenchmark:
+    benchmarks = {}
     def __init__(self, host, repeats, parameters, ssh_id=None, jscpath=None):
         self._host = host
         self._repeats = repeats
         self._parameters = parameters
         self._ssh_id = ssh_id
-        self.logger = logging.getLogger("jsc-tune/JSCBenchmark")
+        self.logger = logging.getLogger(f"jsc-tune/{self.name}")
         if jscpath is None:
             self._jscpath = 'jsc'
         else:
             self._jscpath = jscpath
+
+    @classmethod
+    def register(klass, benchmark_class):
+        klass.benchmarks[benchmark_class.name] = benchmark_class
 
     def score(self, out, errs):
         raise RuntimeError("Not implemented")
@@ -101,6 +107,7 @@ class JSCBenchmark:
         return (tmean(scores), tvar(scores))
 
 class JetStream2(JSCBenchmark):
+    name = 'JetStream2'
     def benchmark_command(self, env_string):
         return f'cd JetStream2; {env_string} {self._jscpath} watch-cli.js'
 
@@ -115,6 +122,26 @@ class JetStream2(JSCBenchmark):
         # we're minimizing, but interested in highest score, hence the '-'
         return -gmean(l)
 
+JSCBenchmark.register(JetStream2)
+
+class MockBenchmark(JSCBenchmark):
+    name = 'MockBenchmark'
+    def run(self, arguments):
+        def addnoise(val):
+            if val == 0:
+                return .6 * random() - .3
+            margin = .03 * val
+            return val + random() * margin * 2 - margin
+
+        assert type(arguments) is list, f"arguments of unexpected type {type(arguments)}: {arguments}"
+        scores = [abs(addnoise(p.default - arguments[i])) for i, p in enumerate(self._parameters)]
+        ret = gmean(scores) + random() * 6 - 3
+        return ret
+
+JSCBenchmark.register(MockBenchmark)
+
+parser.add_argument('-b', '--benchmark', type=str, default="JetStream2",
+                    help=f"Which benchmark to use ({list(JSCBenchmark.benchmarks.keys())}). Default is JetStream2")
 
 def save_results(options, output_dir, res, nowStr):
     if options.dump_graphs:
@@ -175,7 +202,8 @@ if __name__ == '__main__':
 
     logger = logging.getLogger("jsc-tune")
     logger.debug(f"options: {options}")
-    benchmark = JetStream2(options.remote, options.repeats, parameters, options.ssh_id, options.jsc_path)
+    BenchClass = JSCBenchmark.benchmarks[options.benchmark]
+    benchmark = BenchClass(options.remote, options.repeats, parameters, options.ssh_id, options.jsc_path)
     gp_minimize_kargs = {}
     if options.pre_run >=3:
         y0, noise = benchmark.preruns(options.pre_run)
@@ -228,5 +256,5 @@ if __name__ == '__main__':
                           verbose=True,
                           **gp_minimize_kargs)
     logger.info(f"gp_minimize ran in {time.monotonic() - before}s")
-    logger.info(f"best: {res.x} → {-res.fun}")
+    logger.info(f"best: {res.x} → {abs(res.fun)}")
     save_results(options, output_dir, res, nowStr)
