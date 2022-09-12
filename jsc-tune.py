@@ -96,7 +96,7 @@ class JSCBenchmark:
             return 1e100
 
     def preruns(self, n):
-        default_arguments = dict((p.name, p.default) for p in self._parameters)
+        default_arguments =  [p.default for p in self._parameters]
         scores = [self.run(default_arguments) for _ in range(n)]
         return (tmean(scores), tvar(scores))
 
