@@ -30,7 +30,7 @@ APP_ARGS=
 check_and_build_image() {
   if ! docker image inspect $IMAGE > /dev/null 2>&1; then
     echo "Docker image not present, building it"
-    make
+    docker build --build-arg uid=`id -u` --build-arg gid=`id -g` --tag guij/jsc-tune "${JSC_TUNE_DIR}"
   fi
 }
 
