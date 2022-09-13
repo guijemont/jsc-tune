@@ -49,15 +49,20 @@ parser.add_argument('--repeats', type=int, default=5,
                     help="How many times to run each config (apart from preruns)")
 parser.add_argument('--previous-results', type=str, default=[], action='append',
                     help="PKL file containing previous results for this exact configuration to take into account")
+parser.add_argument('--benchmark-local-path', type=str, default=None,
+                    help="Path where the benchmark can be found locally to copy it to the remote host. If not provided, we're assuming that the benchmark is already deployed on the remote host.")
+parser.add_argument('--benchmark-remote-path', type=str, default="JetStream2",
+        help="Path where the benchmark is installed on the remote host. If `--benchmark-local-path` is also specified, copy the benchmark to that directory on the remote host.")
 # Note -b / --benchmark option added after benchmark definitions
 
 class JSCBenchmark:
     benchmarks = {}
-    def __init__(self, host, repeats, parameters, ssh_id=None, jscpath=None):
+    def __init__(self, host, repeats, parameters, benchmark_path, ssh_id=None, jscpath=None):
         self._host = host
         self._repeats = repeats
         self._parameters = parameters
         self._ssh_id = ssh_id
+        self._benchmark_path = benchmark_path
         self.logger = logging.getLogger(f"jsc-tune/{self.name}")
         if jscpath is None:
             self._jscpath = 'jsc'
@@ -109,7 +114,7 @@ class JSCBenchmark:
 class JetStream2(JSCBenchmark):
     name = 'JetStream2'
     def benchmark_command(self, env_string):
-        return f'cd JetStream2; {env_string} {self._jscpath} watch-cli.js'
+        return f'cd {self._benchmark_path}; {env_string} {self._jscpath} watch-cli.js'
 
     def score(self, out, errs):
         def __parse(s, errs=None):
@@ -202,8 +207,13 @@ if __name__ == '__main__':
 
     logger = logging.getLogger("jsc-tune")
     logger.debug(f"options: {options}")
+    if options.benchmark_local_path:
+        logger.info(f"Copying benchmark from {options.benchmark_local_path} to {options.benchmark_remote_path} on {options.remote}")
+        ssh_opts = f"-o StrictHostKeyChecking=no -i {options.ssh_id}"
+        cmd = f"scp {ssh_opts} -r {options.benchmark_local_path} {options.remote}:{options.benchmark_remote_path}"
+        subprocess.run(cmd, shell=True, text=True)
     BenchClass = JSCBenchmark.benchmarks[options.benchmark]
-    benchmark = BenchClass(options.remote, options.repeats, parameters, options.ssh_id, options.jsc_path)
+    benchmark = BenchClass(options.remote, options.repeats, parameters, options.benchmark_remote_path, options.ssh_id, options.jsc_path)
     gp_minimize_kargs = {}
     if options.pre_run >=3:
         y0, noise = benchmark.preruns(options.pre_run)

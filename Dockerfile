@@ -23,7 +23,7 @@ RUN mkdir /work && chown $uid:$gid /work
 
 RUN mkdir /jsc-tune && chown $uid:$gid /jsc-tune
 
-RUN mkdir /jsc-tune-data && chown $uid:$gid /jsc-tune-data
+RUN mkdir -p /jsc-tune-data/ssh /jsc-tune-data/benchmark && chown -R $uid:$gid /jsc-tune-data
 
 WORKDIR /work
 
