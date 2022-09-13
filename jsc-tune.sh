@@ -27,6 +27,13 @@ ssh_id_path=$(realpath $(dirname "${ssh_id}"))
 DOCKER_RUN_ARGS=" -v ${JSC_TUNE_DIR}:/jsc-tune -v ${PWD}:/work -v ${ssh_id_path}:/jsc-tune-data/ssh"
 APP_ARGS=
 
+check_and_build_image() {
+  if ! docker image inspect $IMAGE > /dev/null 2>&1; then
+    echo "Docker image not present, building it"
+    make
+  fi
+}
+
 if  [ "${benchmark_from}" ]; then
   benchmark_from=$(realpath "${benchmark_from}")
   DOCKER_RUN_ARGS+=" -v ${benchmark_from}:/jsc-tune-data/benchmark"
@@ -34,6 +41,7 @@ if  [ "${benchmark_from}" ]; then
 fi
 
 get_help() {
+  check_and_build_image
   docker run --rm ${DOCKER_RUN_ARGS} $IMAGE --help
 }
 
@@ -48,10 +56,6 @@ if [ x"$ssh_id" == x"" ]; then
   exit 1
 fi
 
-
-if ! docker image inspect $IMAGE > /dev/null 2>&1; then
-  echo "Docker image not present, building it"
-  make
-fi
+check_and_build_image
 
 docker run --rm  ${DOCKER_RUN_ARGS} --network=host ${IMAGE} "$@" -i "/jsc-tune-data/ssh/${ssh_id_file}" ${APP_ARGS}
