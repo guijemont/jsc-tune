@@ -148,12 +148,14 @@ JSCBenchmark.register(MockBenchmark)
 parser.add_argument('-b', '--benchmark', type=str, default="JetStream2",
                     help=f"Which benchmark to use ({list(JSCBenchmark.benchmarks.keys())}). Default is JetStream2")
 
-def save_results(options, output_dir, res, nowStr):
+def save_results(logger, options, output_dir, res, nowStr):
     if options.dump_graphs:
+        logger.info(f"Dumping graphs in {output_dir / nowStr}-convergence.png and {output_dir / nowStr}-objective.png.")
         fig = plot_convergence(res).get_figure()
         fig.savefig(output_dir / f"{nowStr}-convergence.png")
         fig = plot_objective(res, dimensions=[p.name for p in parameters])[0][0].get_figure()
         fig.savefig(output_dir / f"{nowStr}-objective.png")
+    logger.info(f"Saving results to {output_dir / nowStr}-dump.pkl.")
     skopt.dump(res, output_dir / f"{nowStr}-dump.pkl", store_objective=False)
 
 
@@ -267,4 +269,4 @@ if __name__ == '__main__':
                           **gp_minimize_kargs)
     logger.info(f"gp_minimize ran in {time.monotonic() - before}s")
     logger.info(f"best: {res.x} → {abs(res.fun)}")
-    save_results(options, output_dir, res, nowStr)
+    save_results(logger, options, output_dir, res, nowStr)
