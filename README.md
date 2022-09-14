@@ -13,5 +13,5 @@
  - log with timestamps [x]
  - mock benchmark [x]
  - copy benchmark (option to set where to copy it) [x]
- - jsc-tune.sh set current uid/gid as uid/gid for optimizer user when creating image
+ - jsc-tune.sh set current uid/gid as uid/gid for optimizer user when creating image [x]
  - README.md!
