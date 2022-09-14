@@ -1,5 +1,4 @@
-# FIXME python 3.10 would be great; can it work?
-FROM python:3.9-alpine as build
+FROM python:3.10-alpine as build
 
 RUN apk update && apk add --no-cache dropbear-ssh \
 	dropbear-scp \
@@ -23,7 +22,7 @@ RUN pip install --no-cache-dir --no-warn-script-location matplotlib==3.5.3
 
 ### Runtime image
 
-FROM python:3.9-alpine
+FROM python:3.10-alpine
 
 RUN apk update && apk add --no-cache \
 	dropbear-ssh \
@@ -32,7 +31,7 @@ RUN apk update && apk add --no-cache \
 	libstdc++ \
 	libgomp
 
-COPY --from=build /usr/local/lib/python3.9/site-packages /usr/local/lib/python3.9/site-packages
+COPY --from=build /usr/local/lib/python3.10/site-packages /usr/local/lib/python3.10/site-packages
 
 # the following is to make matplotlib happy
 RUN mkdir /matplotlib-tmp && chmod 777 /matplotlib-tmp
