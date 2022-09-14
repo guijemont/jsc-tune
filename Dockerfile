@@ -1,11 +1,6 @@
 # FIXME python 3.10 would be great; can it work?
 FROM python:3.9-alpine as build
 
-ARG user=optimizer
-ARG uid=1001
-ARG group=optimizer
-ARG gid=1001
-
 RUN apk update && apk add --no-cache dropbear-ssh \
 	dropbear-scp \
 	g++ \
@@ -17,29 +12,18 @@ RUN apk update && apk add --no-cache dropbear-ssh \
 	make
 
 
-RUN addgroup -g "$gid" "$group"
-
-RUN adduser -G "$group" -u "$uid" -D "$user"
-
-USER $user
+ENV PIP_ROOT_USER_ACTION=ignore
 
 RUN pip install --no-cache-dir --no-warn-script-location --upgrade pip
 
-RUN pip install --no-cache-dir --no-warn-script-location --user scikit-optimize==0.9.0
+RUN pip install --no-cache-dir --no-warn-script-location scikit-optimize==0.9.0
 
-RUN pip install --no-cache-dir --no-warn-script-location --user matplotlib==3.5.3
+RUN pip install --no-cache-dir --no-warn-script-location matplotlib==3.5.3
 
 
 ### Runtime image
 
 FROM python:3.9-alpine
-
-ARG user=optimizer
-ARG uid=1001
-ARG group=optimizer
-ARG gid=1001
-
-RUN addgroup -g "$gid" "$group" && adduser -G "$group" -u "$uid" -D "$user"
 
 RUN apk update && apk add --no-cache \
 	dropbear-ssh \
@@ -48,14 +32,12 @@ RUN apk update && apk add --no-cache \
 	libstdc++ \
 	libgomp
 
-RUN mkdir /work && chown $uid:$gid /work \
-	&& mkdir /jsc-tune && chown $uid:$gid /jsc-tune \
-	&& mkdir -p /jsc-tune-data/ssh /jsc-tune-data/benchmark && chown -R $uid:$gid /jsc-tune-data
+COPY --from=build /usr/local/lib/python3.9/site-packages /usr/local/lib/python3.9/site-packages
+
+# the following is to make matplotlib happy
+RUN mkdir /matplotlib-tmp && chmod 777 /matplotlib-tmp
+ENV MPLCONFIGDIR=/matplotlib-tmp
 
 WORKDIR /work
-
-COPY --from=build /home/$user/.local /home/$user/.local
-
-USER $user
 
 ENTRYPOINT [ "python", "/jsc-tune/jsc-tune.py" ]

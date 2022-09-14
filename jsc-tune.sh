@@ -25,12 +25,13 @@ ssh_id_file=${ssh_id##*/}
 ssh_id_path=$(realpath $(dirname "${ssh_id}"))
 
 DOCKER_RUN_ARGS=" -v ${JSC_TUNE_DIR}:/jsc-tune -v ${PWD}:/work -v ${ssh_id_path}:/jsc-tune-data/ssh"
+DOCKER_RUN_ARGS+=" --user `id -u`:`id -g`"
 APP_ARGS=
 
 check_and_build_image() {
   if ! docker image inspect $IMAGE > /dev/null 2>&1; then
     echo "Docker image not present, building it"
-    docker build --build-arg uid=`id -u` --build-arg gid=`id -g` --tag guij/jsc-tune "${JSC_TUNE_DIR}" || exit 1
+    docker build --tag guij/jsc-tune "${JSC_TUNE_DIR}" || exit 1
   fi
 }
 
