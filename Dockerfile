@@ -1,6 +1,37 @@
-# FIXME: run as a user (and install pip packages as user)
-# python 3.10 would be great, but can't build numpy with it
-#FROM python:3.9-slim
+# FIXME python 3.10 would be great; can it work?
+FROM python:3.9-alpine as build
+
+ARG user=optimizer
+ARG uid=1001
+ARG group=optimizer
+ARG gid=1001
+
+RUN apk update && apk add --no-cache dropbear-ssh \
+	dropbear-scp \
+	g++ \
+	gfortran \
+	musl-dev \
+	pkgconf \
+	openblas \
+	openblas-dev \
+	make
+
+
+RUN addgroup -g "$gid" "$group"
+
+RUN adduser -G "$group" -u "$uid" -D "$user"
+
+USER $user
+
+RUN pip install --no-cache-dir --no-warn-script-location --upgrade pip
+
+RUN pip install --no-cache-dir --no-warn-script-location --user scikit-optimize==0.9.0
+
+RUN pip install --no-cache-dir --no-warn-script-location --user matplotlib==3.5.3
+
+
+### Runtime image
+
 FROM python:3.9-alpine
 
 ARG user=optimizer
@@ -8,40 +39,23 @@ ARG uid=1001
 ARG group=optimizer
 ARG gid=1001
 
-#ENV DEBIAN_FRONTEND=noninteractive
+RUN addgroup -g "$gid" "$group" && adduser -G "$group" -u "$uid" -D "$user"
 
-# RUN apt-get update  && apt-get upgrade -y && apt-get install -y \
-# 	openssh-client \
-# 	&& apt-get clean && rm -rf /var/lib/apt/lists/*
+RUN apk update && apk add --no-cache \
+	dropbear-ssh \
+	dropbear-scp \
+	openblas \
+	libstdc++ \
+	libgomp
 
-RUN apk update && apk add --no-cache dropbear-ssh dropbear-scp gfortran
-
-# RUN echo $gid:$group && groupadd -g "$gid" "$group"
-
-RUN addgroup -g "$gid" "$group"
-
-# RUN useradd -m -u "$uid" -g "$gid" "$user"
-
-RUN adduser -G "$group" -u "$uid" -D "$user"
-
-
-RUN mkdir /work && chown $uid:$gid /work
-
-RUN mkdir /jsc-tune && chown $uid:$gid /jsc-tune
-
-RUN mkdir -p /jsc-tune-data/ssh /jsc-tune-data/benchmark && chown -R $uid:$gid /jsc-tune-data
+RUN mkdir /work && chown $uid:$gid /work \
+	&& mkdir /jsc-tune && chown $uid:$gid /jsc-tune \
+	&& mkdir -p /jsc-tune-data/ssh /jsc-tune-data/benchmark && chown -R $uid:$gid /jsc-tune-data
 
 WORKDIR /work
 
+COPY --from=build /home/$user/.local /home/$user/.local
+
 USER $user
-
-RUN pip install --no-cache-dir --no-warn-script-location --upgrade pip
-
-# RUN pip install --no-cache-dir --no-warn-script-location scipy==1.9.1
-
-RUN pip install --no-cache-dir --no-warn-script-location --user scikit-optimize==0.9.0
-
-RUN pip install --no-cache-dir --no-warn-script-location --user matplotlib==3.5.3
-
 
 ENTRYPOINT [ "python", "/jsc-tune/jsc-tune.py" ]
