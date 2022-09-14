@@ -34,11 +34,8 @@ parser.add_argument('-i', '--ssh-id', required=True,
                     help="ssh identity file to use to connect to remote host")
 parser.add_argument('-j', '--jsc-path', default="jsc",
                     help="path of jsc executable on remote host (default: \"jsc\" assuming it is in $PATH")
-parser.add_argument('--initial-point-generator', default="random")
 parser.add_argument('-n', '--n-calls', type=int, default=75,
                     help="how many times to run benchmark")
-parser.add_argument('--initial-points', type=int, default=10,
-                    help="how many random points to evaluate before using estimator")
 parser.add_argument('-p', '--pre-run', type=int, default=5,
                     help="How many times to initially run benchmark to calculate variance")
 parser.add_argument('-o', '--output-dir', type=str, default="./jsc-tune-results",
@@ -49,6 +46,9 @@ parser.add_argument('--repeats', type=int, default=5,
                     help="How many times to run each config (apart from preruns)")
 parser.add_argument('--previous-results', type=str, default=[], action='append',
                     help="PKL file containing previous results for this exact configuration to take into account")
+parser.add_argument('--initial-point-generator', default="random")
+parser.add_argument('--initial-points', type=int, default=10,
+                    help="how many random points to evaluate before using estimator")
 parser.add_argument('--benchmark-local-path', type=str, default=None,
                     help="Path where the benchmark can be found locally to copy it to the remote host. If not provided, we're assuming that the benchmark is already deployed on the remote host.")
 parser.add_argument('--benchmark-remote-path', type=str, default="JetStream2",
