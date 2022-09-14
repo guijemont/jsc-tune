@@ -32,8 +32,8 @@ parser.add_argument('-r', '--remote', required=True,
                     help='host or user@host to pass to ssh to access remote host')
 parser.add_argument('-i', '--ssh-id', required=True,
                     help="ssh identity file to use to connect to remote host")
-parser.add_argument('-j', '--jsc-path', required=True,
-                    help="path of jsc executable on remote host")
+parser.add_argument('-j', '--jsc-path', default="jsc",
+                    help="path of jsc executable on remote host (default: \"jsc\" assuming it is in $PATH")
 parser.add_argument('--initial-point-generator', default="random")
 parser.add_argument('-n', '--n-calls', type=int, default=75,
                     help="how many times to run benchmark")
