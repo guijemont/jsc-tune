@@ -55,4 +55,4 @@ ENV MPLCONFIGDIR=/matplotlib-tmp
 
 WORKDIR /work
 
-ENTRYPOINT [ "python", "/jsc-tune/jsc-tune.py" ]
+ENTRYPOINT [ "python", "-u", "/jsc-tune/jsc-tune.py" ]
