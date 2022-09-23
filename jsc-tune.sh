@@ -16,7 +16,7 @@
 # You should have received a copy of the GNU General Public License along with
 # jsc-tune. If not, see <https://www.gnu.org/licenses/>.
 
-IMAGE=guij/jsc-tune
+IMAGE=guijemont/jsc-tune
 CONTAINER=jsc-tune
 JSC_TUNE_DIR=$(realpath $(dirname ${BASH_SOURCE[0]}))
 
@@ -47,7 +47,7 @@ APP_ARGS=
 check_and_build_image() {
   if ! docker image inspect $IMAGE > /dev/null 2>&1; then
     echo "Docker image not present, building it"
-    docker build --tag guij/jsc-tune "${JSC_TUNE_DIR}" || exit 1
+    docker build --tag "${IMAGE}" "${JSC_TUNE_DIR}" || exit 1
   fi
 }
 
