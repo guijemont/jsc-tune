@@ -53,6 +53,6 @@ COPY --from=build /usr/local/lib/python3.10/site-packages /usr/local/lib/python3
 RUN mkdir /matplotlib-tmp && chmod 777 /matplotlib-tmp
 ENV MPLCONFIGDIR=/matplotlib-tmp
 
-WORKDIR /work
+WORKDIR /jsc-tune
 
-ENTRYPOINT [ "python", "-u", "/jsc-tune/jsc-tune.py" ]
+ENTRYPOINT [ "python", "-u", "jsc-tune.py" ]

@@ -34,6 +34,6 @@ RUN pip install --no-cache-dir --no-warn-script-location matplotlib==3.5.3
 RUN mkdir /matplotlib-tmp && chmod 777 /matplotlib-tmp
 ENV MPLCONFIGDIR=/matplotlib-tmp
 
-WORKDIR /work
+WORKDIR /jsc-tune
 
-ENTRYPOINT [ "python", "-u", "/jsc-tune/jsc-tune.py" ]
+ENTRYPOINT [ "python", "-u", "jsc-tune.py" ]

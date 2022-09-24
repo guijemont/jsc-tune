@@ -26,9 +26,11 @@ optidx=0
 ssh_id=
 help=no
 benchmark_from=
+output_dir="./jsc-tune-results"
 while [ "${OPTIONS[optidx]}" != "--" ]; do
   case "${OPTIONS[optidx]}" in
     -i|--ssh-id) ssh_id=${OPTIONS[++optidx]} ;;
+    -o|--output-dir) output_dir=${OPTIONS[++optidx]} ;;
     --benchmark-local-path) benchmark_from="${OPTIONS[++optidx]}" ;;
     --help) help=yes ;;
     --) break ;;
@@ -40,9 +42,16 @@ done
 ssh_id_file=${ssh_id##*/}
 ssh_id_path=$(realpath $(dirname "${ssh_id}"))
 
-DOCKER_RUN_ARGS=" -v ${JSC_TUNE_DIR}:/jsc-tune -v ${PWD}:/work -v ${ssh_id_path}:/jsc-tune-data/ssh"
+
+output_dir=$(realpath "${output_dir}")
+mkdir -p "${output_dir}"
+
+DOCKER_RUN_ARGS=" -v ${JSC_TUNE_DIR}:/jsc-tune"
+DOCKER_RUN_ARGS+=" -v ${ssh_id_path}:/jsc-tune-data/ssh"
+DOCKER_RUN_ARGS+=" -v ${output_dir}:/jsc-tune-data/output"
 DOCKER_RUN_ARGS+=" --user `id -u`:`id -g`"
-APP_ARGS=
+APP_ARGS="-i /jsc-tune-data/ssh/${ssh_id_file}"
+APP_ARGS+=" -o /jsc-tune-data/output"
 
 check_and_build_image() {
   if ! docker image inspect $IMAGE > /dev/null 2>&1; then
@@ -75,4 +84,4 @@ fi
 
 check_and_build_image
 
-docker run --rm  ${DOCKER_RUN_ARGS} --network=host ${IMAGE} "$@" -i "/jsc-tune-data/ssh/${ssh_id_file}" ${APP_ARGS}
+docker run --rm  ${DOCKER_RUN_ARGS} --network=host ${IMAGE} "$@" ${APP_ARGS}
