@@ -281,7 +281,7 @@ if __name__ == '__main__':
     with ExitStack() as stack:
         # We need this stuff because gp_minimize() does a lot of prints that we want in our log file
         stack.enter_context(redirect_stdout(LogRedirect("gp_minimize", logging.INFO)))
-        stack.enter_context(redirect_stderr(LogRedirect("gp_minimize", logging.ERROR)))
+        stack.enter_context(redirect_stderr(LogRedirect("gp_minimize", logging.WARNING)))
         res = skopt.gp_minimize(benchmark.run,
                           [p.range for p in parameters],
                           n_calls=options.n_calls,
