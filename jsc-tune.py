@@ -171,8 +171,14 @@ def save_results(logger, options, output_dir, res, nowStr):
         fig.savefig(output_dir / f"{nowStr}-convergence.png")
         fig = plot_objective(res, dimensions=[p.name for p in parameters])[0][0].get_figure()
         fig.savefig(output_dir / f"{nowStr}-objective.png")
-    logger.info(f"Saving results to {output_dir / nowStr}-dump.pkl.")
+    logger.info(f"Saving optimization data to {output_dir / nowStr}-dump.pkl")
     skopt.dump(res, output_dir / f"{nowStr}-dump.pkl", store_objective=False)
+    result = { "parameters": dict(((p.name, res.x[i]) for i, p in enumerate(parameters))),
+               "score": abs(res.fun) }
+    result_path = output_dir / f"{nowStr}-result.json"
+    logger.info(f"Saving results to {result_path}")
+    with open(result_path, "w") as f:
+        json.dump(result, f, indent=2)
 
 
 def prepare_output(options):
