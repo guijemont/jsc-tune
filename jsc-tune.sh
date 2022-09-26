@@ -20,7 +20,7 @@ IMAGE=guijemont/jsc-tune
 CONTAINER=jsc-tune
 JSC_TUNE_DIR=$(realpath $(dirname ${BASH_SOURCE[0]}))
 
-eval "OPTIONS=(`getopt -q -o i: --long ssh-id:,benchmark-local-path:,help -- "$@"`)"
+eval "OPTIONS=(`getopt -q -o i:,o:,h --long ssh-id:,output-dir:,benchmark-local-path:,help -- "$@"`)"
 optidx=0
 
 ssh_id=
@@ -32,7 +32,7 @@ while [ "${OPTIONS[optidx]}" != "--" ]; do
     -i|--ssh-id) ssh_id=${OPTIONS[++optidx]} ;;
     -o|--output-dir) output_dir=${OPTIONS[++optidx]} ;;
     --benchmark-local-path) benchmark_from="${OPTIONS[++optidx]}" ;;
-    --help) help=yes ;;
+    -h|--help) help=yes ;;
     --) break ;;
     *) echo "Problem when parsing options!"; exit 1 ;;
   esac
@@ -50,7 +50,7 @@ DOCKER_RUN_ARGS=" -v ${JSC_TUNE_DIR}:/jsc-tune"
 DOCKER_RUN_ARGS+=" -v ${ssh_id_path}:/jsc-tune-data/ssh"
 DOCKER_RUN_ARGS+=" -v ${output_dir}:/jsc-tune-data/output"
 DOCKER_RUN_ARGS+=" --user `id -u`:`id -g`"
-APP_ARGS="-i /jsc-tune-data/ssh/${ssh_id_file}"
+APP_ARGS=" -i /jsc-tune-data/ssh/${ssh_id_file}"
 APP_ARGS+=" -o /jsc-tune-data/output"
 
 check_and_build_image() {
