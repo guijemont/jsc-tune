@@ -16,8 +16,7 @@
 
 FROM python:3.10-alpine as build
 
-RUN apk update && apk add --no-cache dropbear-ssh \
-	dropbear-scp \
+RUN apk update && apk add --no-cache \
 	g++ \
 	gfortran \
 	musl-dev \
@@ -25,7 +24,6 @@ RUN apk update && apk add --no-cache dropbear-ssh \
 	openblas \
 	openblas-dev \
 	make
-
 
 ENV PIP_ROOT_USER_ACTION=ignore
 
@@ -43,6 +41,7 @@ FROM python:3.10-alpine
 RUN apk update && apk add --no-cache \
 	dropbear-ssh \
 	dropbear-scp \
+	dropbear-convert \
 	openblas \
 	libstdc++ \
 	libgomp
@@ -52,6 +51,12 @@ COPY --from=build /usr/local/lib/python3.10/site-packages /usr/local/lib/python3
 # the following is to make matplotlib happy
 RUN mkdir /matplotlib-tmp && chmod 777 /matplotlib-tmp
 ENV MPLCONFIGDIR=/matplotlib-tmp
+
+RUN mkdir -p /jsc-tune-data/ssh && chmod 777 /jsc-tune-data/ssh
+
+RUN mkdir -p /work && chmod 777 /work
+
+ENV HOME=/work
 
 WORKDIR /jsc-tune
 

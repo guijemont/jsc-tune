@@ -18,6 +18,7 @@
 
 IMAGE=guijemont/jsc-tune
 CONTAINER=jsc-tune
+VOLUME=jsc-tune-`id -un`
 JSC_TUNE_DIR=$(realpath $(dirname ${BASH_SOURCE[0]}))
 
 eval "OPTIONS=(`getopt -q -o i:,o:,h --long ssh-id:,output-dir:,benchmark-local-path:,help -- "$@"`)"
@@ -41,14 +42,21 @@ done
 
 ssh_id_file=${ssh_id##*/}
 ssh_id_path=$(realpath $(dirname "${ssh_id}"))
+if [ "${ssh_id}" ]; then
+  ssh_id=$(realpath "${ssh_id}")
+fi
 
 
 output_dir=$(realpath "${output_dir}")
 mkdir -p "${output_dir}"
 
 DOCKER_RUN_ARGS=" -v ${JSC_TUNE_DIR}:/jsc-tune"
-DOCKER_RUN_ARGS+=" -v ${ssh_id_path}:/jsc-tune-data/ssh"
+# $ssh_id can be empty if we're just calling with --help
+if [ "${ssh_id}" ]; then
+  DOCKER_RUN_ARGS+=" -v ${ssh_id}:/jsc-tune-data/ssh/${ssh_id_file}"
+fi
 DOCKER_RUN_ARGS+=" -v ${output_dir}:/jsc-tune-data/output"
+DOCKER_RUN_ARGS+=" -v ${VOLUME}:/work"
 DOCKER_RUN_ARGS+=" --user `id -u`:`id -g`"
 APP_ARGS=" -i /jsc-tune-data/ssh/${ssh_id_file}"
 APP_ARGS+=" -o /jsc-tune-data/output"
@@ -57,6 +65,13 @@ check_and_build_image() {
   if ! docker image inspect $IMAGE > /dev/null 2>&1; then
     echo "Docker image not present, building it"
     docker build --tag "${IMAGE}" "${JSC_TUNE_DIR}" || exit 1
+  fi
+}
+
+check_and_create_volume() {
+  if ! docker volume inspect "${VOLUME}" > /dev/null 2>&1; then
+    echo "Docker volume not present, creating it"
+    docker volume create "${VOLUME}"
   fi
 }
 
@@ -83,5 +98,6 @@ if [ x"$ssh_id" == x"" ]; then
 fi
 
 check_and_build_image
+check_and_create_volume
 
-docker run --rm  ${DOCKER_RUN_ARGS} --network=host ${IMAGE} "$@" ${APP_ARGS}
+docker run --rm -it ${DOCKER_RUN_ARGS} --network=host ${IMAGE} "$@" ${APP_ARGS}

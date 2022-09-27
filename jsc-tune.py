@@ -30,6 +30,7 @@ from pathlib import Path
 import logging
 from contextlib import ExitStack, redirect_stdout, redirect_stderr
 from random import random
+import shlex
 
 
 Parameter = namedtuple('Parameter', ('name', 'range', 'default'))
@@ -71,6 +72,33 @@ parser.add_argument('--benchmark-remote-path', type=str, default="JetStream2",
         help="Path where the benchmark is installed on the remote host. If `--benchmark-local-path` is also specified, copy the benchmark to that directory on the remote host.")
 # Note -b / --benchmark option added after benchmark definitions
 
+
+class __is_dropbear():
+    is_dropbear = None
+    def __init__(self):
+        if self.is_dropbear is None:
+            res = subprocess.run(["ssh", "-V"], capture_output=True, check=True, text=True)
+            self.is_dropbear = "Dropbear" in res.stderr
+
+def is_dropbear():
+    res = __is_dropbear().is_dropbear
+    return  res
+
+class prepare_ssh_key():
+    has_run = False
+    def __init__(self, logger, ssh_id):
+        if self.has_run:
+            return
+        if is_dropbear():
+            # we need to convert ssh key to dropbear format
+            id_path = Path(ssh_id)
+            dropbear_id_path = Path(f"{id_path}.dropbear")
+            cmd =  f"dropbearconvert openssh dropbear {id_path} {dropbear_id_path}"
+            subprocess.run(shlex.split(cmd), check=True)
+
+        self.has_run = True
+
+
 class JSCBenchmark:
     benchmarks = {}
     def __init__(self, host, repeats, parameters, benchmark_path, ssh_id=None, jscpath=None):
@@ -100,9 +128,7 @@ class JSCBenchmark:
         env = dict((self._parameters[i].name, arg) for i, arg in enumerate(arguments))
         env_string = " ".join(f"JSC_{k}={v}" for k,v in env.items())
 
-        ssh_opts = "-o StrictHostKeyChecking=no"
-        if self._ssh_id:
-            ssh_opts += f" -i {self._ssh_id}"
+        ssh_opts = f"-i {self._ssh_id}" if self._ssh_id else ""
 
         cmd = f'ssh {ssh_opts} {self._host} "{self.benchmark_command(env_string)}"'
 
@@ -231,9 +257,16 @@ if __name__ == '__main__':
 
     logger = logging.getLogger("jsc-tune")
     logger.debug(f"options: {options}")
+
+    prepare_ssh_key(logger, options.ssh_id)
+    if is_dropbear():
+        options.ssh_id = f"{options.ssh_id}.dropbear"
+    # Ensure we add the remote host key to known_hosts if needed, before we run ssh in an uninteractive way.
+    subprocess.run(['ssh', '-i', options.ssh_id, options.remote, 'true'])
+
     if options.benchmark_local_path:
         logger.info(f"Copying benchmark from {options.benchmark_local_path} to {options.benchmark_remote_path} on {options.remote}")
-        ssh_opts = f"-o StrictHostKeyChecking=no -i {options.ssh_id}"
+        ssh_opts = f"-i {options._ssh_id}" if options._ssh_id else ""
         cmd = f"scp {ssh_opts} -r {options.benchmark_local_path} {options.remote}:{options.benchmark_remote_path}"
         subprocess.run(cmd, shell=True, text=True)
     BenchClass = JSCBenchmark.benchmarks[options.benchmark]
