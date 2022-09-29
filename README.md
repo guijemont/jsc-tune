@@ -74,6 +74,9 @@ You can optionally have them output to a different directory using the `-o`
 option, but note that this directory currently needs to be a subdirectory of
 where you launch `jsc-tune.sh` from.
 
+Note that a run of jsc-tune with default parameters can take a long while. On a
+raspberry pi 3, it takes about *3 days*.
+
 
 ## Interepreting results
 
