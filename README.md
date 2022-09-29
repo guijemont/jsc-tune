@@ -11,7 +11,7 @@ added with a few lines of code.
 
 First you should check out this repository:
 
-```
+```sh
   git clone https://github.com/guijemont/jsc-tune.git
 ```
 
@@ -30,18 +30,18 @@ On remote target:
 
 ## Setting up and launching
 
-The first time you run `jsc-tune.sh`, it will build the docker image with all
-the dependencies, which can take a while. If you want to build it without
-running the script, you can do so by running from the directory where you
-checked out the project:
+The first time you run `jsc-tune.sh`, it will pull the docker image with all
+the dependencies, which can take a while depending on your internet connection.
 
-```
-  docker build --tag guijemont/jsc-tune .
+If you want to do it manually, you can use the following command:
+
+```sh
+  docker pull ghcr.io/guijemont/jsc-tune
 ```
 
 You can see the details of all the options by running:
 
-```
+```sh
   ./jsc-tune.sh --help
 ```
 
@@ -49,7 +49,7 @@ Which is encouraged, as this document does not list all the options.
 
 
 The minimal options you can run it with are:
-```
+```sh
   /path/to/jsc-tune.sh -r user@device -i ssh/ssh_id
 ```
 
@@ -122,11 +122,11 @@ The most important data in these file is in the json file which will look like t
 To run JavaScriptCore or a WebKit-based browser with the seetings found, you want to set an environment variable for each parameter, with the name of the variable being `JSC_` prepended to each parameter name, and the values found. For the example above, that could be something like:
 
 ```sh
-JSC_maximumFunctionForCallInlineCandidateBytecodeCost=77 \
-JSC_maximumOptimizationCandidateBytecodeCost=42403 \
-JSC_maximumFunctionForClosureCallInlineCandidateBytecodeCost=68 \
-JSC_maximumInliningCallerBytecodeCost=9912 \
-JSC_maximumInliningDepth=8 \
-JSC_maximumInliningRecursion=3 \
-cog
+  JSC_maximumFunctionForCallInlineCandidateBytecodeCost=77 \
+  JSC_maximumOptimizationCandidateBytecodeCost=42403 \
+  JSC_maximumFunctionForClosureCallInlineCandidateBytecodeCost=68 \
+  JSC_maximumInliningCallerBytecodeCost=9912 \
+  JSC_maximumInliningDepth=8 \
+  JSC_maximumInliningRecursion=3 \
+  cog
 ```
