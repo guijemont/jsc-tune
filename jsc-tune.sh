@@ -16,7 +16,7 @@
 # You should have received a copy of the GNU General Public License along with
 # jsc-tune. If not, see <https://www.gnu.org/licenses/>.
 
-IMAGE=ghcr.io/guijemont/jsc-tune
+IMAGE=guijemont/jsc-tune
 CONTAINER=jsc-tune
 VOLUME=jsc-tune-`id -un`
 JSC_TUNE_DIR=$(realpath $(dirname ${BASH_SOURCE[0]}))
