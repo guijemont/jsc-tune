@@ -41,7 +41,6 @@ while [ "${OPTIONS[optidx]}" != "--" ]; do
 done
 
 ssh_id_file=${ssh_id##*/}
-ssh_id_path=$(realpath $(dirname "${ssh_id}"))
 if [ "${ssh_id}" ]; then
   ssh_id=$(realpath "${ssh_id}")
 fi
@@ -51,14 +50,21 @@ output_dir=$(realpath "${output_dir}")
 mkdir -p "${output_dir}"
 
 DOCKER_RUN_ARGS=" -v ${JSC_TUNE_DIR}:/jsc-tune"
+APP_ARGS=
+
 # $ssh_id can be empty if we're just calling with --help
 if [ "${ssh_id}" ]; then
   DOCKER_RUN_ARGS+=" -v ${ssh_id}:/jsc-tune-data/ssh/${ssh_id_file}"
+  APP_ARGS+=" -i /jsc-tune-data/ssh/${ssh_id_file}"
 fi
 DOCKER_RUN_ARGS+=" -v ${output_dir}:/jsc-tune-data/output"
 DOCKER_RUN_ARGS+=" -v ${VOLUME}:/work"
+if [ "${SSH_AUTH_SOCK}" ]; then
+  sock_dir=$(dirname ${SSH_AUTH_SOCK})
+  DOCKER_RUN_ARGS+=" -v ${sock_dir}:${sock_dir}"
+  DOCKER_RUN_ARGS+=" -e SSH_AUTH_SOCK=${SSH_AUTH_SOCK}"
+fi
 DOCKER_RUN_ARGS+=" --user `id -u`:`id -g`"
-APP_ARGS=" -i /jsc-tune-data/ssh/${ssh_id_file}"
 APP_ARGS+=" -o /jsc-tune-data/output"
 
 check_and_create_volume() {
@@ -81,12 +87,6 @@ get_help() {
 if [ "$help" == "yes" ]; then
   get_help
   exit
-fi
-
-if [ x"$ssh_id" == x"" ]; then
-  echo "Invalid command line parameters: missing ssh key"
-  get_help
-  exit 1
 fi
 
 check_and_create_volume

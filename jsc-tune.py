@@ -47,8 +47,8 @@ parameters = (Parameter('maximumFunctionForCallInlineCandidateBytecodeCost', (50
 parser = argparse.ArgumentParser()
 parser.add_argument('-r', '--remote', required=True,
                     help='host or user@host to pass to ssh to access remote host')
-parser.add_argument('-i', '--ssh-id', required=True,
-                    help="ssh identity file to use to connect to remote host")
+parser.add_argument('-i', '--ssh-id', required=False, default=None,
+                    help="ssh identity file to use to connect to remote host (needs to be passwordless)")
 parser.add_argument('-j', '--jsc-path', default="jsc",
                     help="path of jsc executable on remote host (default: \"jsc\" assuming it is in $PATH")
 parser.add_argument('-n', '--n-calls', type=int, default=75,
@@ -258,17 +258,19 @@ if __name__ == '__main__':
     logger = logging.getLogger("jsc-tune")
     logger.debug(f"options: {options}")
 
-    prepare_ssh_key(logger, options.ssh_id)
-    if is_dropbear():
-        options.ssh_id = f"{options.ssh_id}.dropbear"
+    if options.ssh_id:
+        prepare_ssh_key(logger, options.ssh_id)
+        if is_dropbear():
+            options.ssh_id = f"{options.ssh_id}.dropbear"
     # Ensure we add the remote host key to known_hosts if needed, before we run ssh in an uninteractive way.
-    subprocess.run(['ssh', '-i', options.ssh_id, options.remote, 'true'])
+    ssh_opts = f"-i {options.ssh_id}" if options.ssh_id else ""
+    cmd = f"ssh {ssh_opts} {options.remote} true"
+    subprocess.run(shlex.split(cmd), check=True)
 
     if options.benchmark_local_path:
         logger.info(f"Copying benchmark from {options.benchmark_local_path} to {options.benchmark_remote_path} on {options.remote}")
-        ssh_opts = f"-i {options._ssh_id}" if options._ssh_id else ""
         cmd = f"scp {ssh_opts} -r {options.benchmark_local_path} {options.remote}:{options.benchmark_remote_path}"
-        subprocess.run(cmd, shell=True, text=True)
+        subprocess.run(shlex.split(cmd), check=True)
     BenchClass = JSCBenchmark.benchmarks[options.benchmark]
     benchmark = BenchClass(options.remote, options.repeats, parameters, options.benchmark_remote_path, options.ssh_id, options.jsc_path)
     gp_minimize_kargs = {}

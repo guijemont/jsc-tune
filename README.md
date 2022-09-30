@@ -2,9 +2,10 @@
 
 jsc-tune is a tool based on
 [scikit-optimize](https://scikit-optimize.github.io/stable/) to find optimal
-compilation parameters for JavaScriptCore for a given device and benchmark.
-Currently the only benchmark supported is JetStream2, but new benchmarks can be
-added with a few lines of code.
+compilation parameters for JavaScriptCore, the standalone javascript runtime
+from [WebKit](https://webkit.org/) for a given device and benchmark. Currently
+the only benchmark supported is JetStream2, but new benchmarks can be added
+with a few lines of code.
 
 
 ## Installing
@@ -23,10 +24,13 @@ On development host:
  - [GNU bash](https://www.gnu.org/software/bash/)
  - [GNU coreutils](https://www.gnu.org/software/coreutils/) for `dirname` and
    `realpath`.
+ - either a passwordless ssh key, or an ssh agent where the key is added if it
+   is password protected.
 
 On remote target:
 
- - an ssh server to which you can connect with a passwordless ssh key.
+ - an ssh server
+ - the `jsc` stand-alone interpreter from JavaScriptCore.
 
 ## Setting up and launching
 
@@ -50,7 +54,7 @@ Which is encouraged, as this document does not list all the options.
 
 The minimal options you can run it with are:
 ```sh
-  /path/to/jsc-tune.sh -r user@device -i ssh/ssh_id
+  /path/to/jsc-tune.sh -r user@device
 ```
 
 For this to work, you will need:
@@ -64,9 +68,6 @@ For this to work, you will need:
    not deployed on the remote device, you can have the script deploy it for you
    using `--benchmark-local-path` to point to a local deployment of it on your
    development host.
- - the ssh key you pass to `-i` needs to be passwordless, as we are running
-   under docker and there is currently nothing set up to support sharing the
-   host's ssh agent.
 
 The results, including logs, and optionally graphs (if using `-g`) will be
 output by default to a `jsc-tune-results` directory in your current directory.
