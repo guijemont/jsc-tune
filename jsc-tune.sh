@@ -58,7 +58,11 @@ if [ "${ssh_id}" ]; then
   APP_ARGS+=" -i /jsc-tune-data/ssh/${ssh_id_file}"
 fi
 DOCKER_RUN_ARGS+=" -v ${output_dir}:/jsc-tune-data/output"
-DOCKER_RUN_ARGS+=" -v ${VOLUME}:/work"
+if [ -f ${HOME}/.ssh/known_hosts ]; then
+  DOCKER_RUN_ARGS+=" -v ${HOME}/.ssh/known_hosts:/work/.ssh/known_hosts"
+else
+  DOCKER_RUN_ARGS+=" -v ${VOLUME}:/work"
+fi
 if [ "${SSH_AUTH_SOCK}" ]; then
   sock_dir=$(dirname ${SSH_AUTH_SOCK})
   DOCKER_RUN_ARGS+=" -v ${sock_dir}:${sock_dir}"
@@ -67,10 +71,19 @@ fi
 DOCKER_RUN_ARGS+=" --user `id -u`:`id -g`"
 APP_ARGS+=" -o /jsc-tune-data/output"
 
+
+## manage fake /etc/passwd
+
+passwd_file=`mktemp`
+echo "`id -un`:x:`id -u`:`id -g`:`id -un`:/work:/bin/sh" > $passwd_file
+DOCKER_RUN_ARGS+=" -v $passwd_file:/etc/passwd"
+
 check_and_create_volume() {
-  if ! docker volume inspect "${VOLUME}" > /dev/null 2>&1; then
-    echo "Docker volume not present, creating it"
-    docker volume create "${VOLUME}"
+  if [ ! -f ${HOME}/.ssh/known_hosts ]; then
+    if ! docker volume inspect "${VOLUME}" > /dev/null 2>&1; then
+      echo "Docker volume not present, creating it"
+      docker volume create "${VOLUME}"
+    fi
   fi
 }
 
@@ -92,3 +105,5 @@ fi
 check_and_create_volume
 
 docker run --rm -it ${DOCKER_RUN_ARGS} --network=host ${IMAGE} "$@" ${APP_ARGS}
+
+rm -f $passwd_file
