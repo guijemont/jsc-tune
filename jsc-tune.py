@@ -49,8 +49,8 @@ parser.add_argument('-r', '--remote', required=True,
                     help='host or user@host to pass to ssh to access remote host')
 parser.add_argument('-i', '--ssh-id', required=False, default=None,
                     help="ssh identity file to use to connect to remote host (needs to be passwordless)")
-parser.add_argument('-j', '--jsc-path', default="jsc",
-                    help="path of jsc executable on remote host (default: \"jsc\" assuming it is in $PATH")
+parser.add_argument('-e', '--exec-path', type=str,
+                    help="path of the executable with which to run the benchmark on the remote host (default: typically either \"jsc\" or \"cog\" depending on the benchmark (assuming it is in $PATH)")
 parser.add_argument('-n', '--n-calls', type=int, default=75,
                     help="how many times to run benchmark")
 parser.add_argument('-p', '--pre-run', type=int, default=5,
@@ -101,17 +101,17 @@ class prepare_ssh_key():
 
 class JSCBenchmark:
     benchmarks = {}
-    def __init__(self, host, repeats, parameters, benchmark_path, ssh_id=None, jscpath=None):
+    def __init__(self, host, repeats, parameters, benchmark_path, ssh_id=None, exec_path=None):
         self._host = host
         self._repeats = repeats
         self._parameters = parameters
         self._ssh_id = ssh_id
         self._benchmark_path = benchmark_path
         self.logger = logging.getLogger(f"jsc-tune/{self.name}")
-        if jscpath is None:
-            self._jscpath = 'jsc'
+        if exec_path is None:
+            self._exec_path = self.default_exec
         else:
-            self._jscpath = jscpath
+            self._exec_path = exec_path
 
     @classmethod
     def register(klass, benchmark_class):
@@ -155,8 +155,9 @@ class JSCBenchmark:
 
 class JetStream2(JSCBenchmark):
     name = 'JetStream2'
+    default_exec = 'jsc'
     def benchmark_command(self, env_string):
-        return f'cd {self._benchmark_path}; {env_string} {self._jscpath} watch-cli.js'
+        return f'cd {self._benchmark_path}; {env_string} {self._exec_path} watch-cli.js'
 
     def score(self, out, errs):
         def __parse(s, errs=None):
@@ -173,6 +174,7 @@ JSCBenchmark.register(JetStream2)
 
 class MockBenchmark(JSCBenchmark):
     name = 'MockBenchmark'
+    default_exec = 'jsc'
     def run(self, arguments):
         def addnoise(val):
             if val == 0:
@@ -272,7 +274,7 @@ if __name__ == '__main__':
         cmd = f"scp {ssh_opts} -r {options.benchmark_local_path} {options.remote}:{options.benchmark_remote_path}"
         subprocess.run(shlex.split(cmd), check=True)
     BenchClass = JSCBenchmark.benchmarks[options.benchmark]
-    benchmark = BenchClass(options.remote, options.repeats, parameters, options.benchmark_remote_path, options.ssh_id, options.jsc_path)
+    benchmark = BenchClass(options.remote, options.repeats, parameters, options.benchmark_remote_path, options.ssh_id, options.exec_path)
     gp_minimize_kargs = {}
     if options.pre_run >=3:
         y0, noise = benchmark.preruns(options.pre_run)

@@ -59,7 +59,7 @@ The minimal options you can run it with are:
 
 For this to work, you will need:
  - `jsc` to be on `device` and set up in `$PATH`. If it's not in `$PATH`, you
-   can use the `-j` option to specify the path to the `jsc` interpreter on the
+   can use the `-e` option to specify the path to the `jsc` interpreter on the
    remote device.
  - [JetStream2](https://github.com/WebKit/WebKit/tree/main/PerformanceTests/JetStream2)
    to be copied to the `JetStream2` subdirectory of the default directory you
